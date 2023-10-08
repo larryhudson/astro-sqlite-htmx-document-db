@@ -1,0 +1,54 @@
+---
+import Layout from "@src/components/Layout.astro";
+import JobState from "@src/components/JobState.astro";
+
+import { executeQuery, createRecord, updateRecord } from "@src/utils/db";
+import { uploadFile } from "@src/utils/uploads";
+import { taskQueue } from "@src/utils/task-queue";
+
+if (Astro.request.method === "POST") {
+  const formData = await Astro.request.formData();
+  const file = formData.get("file");
+  const filename = file.name;
+
+  const uploadedFilePath = await uploadFile(file);
+
+  const createdId = createRecord("documents", {
+    filename,
+    filepath: uploadedFilePath,
+  });
+
+  const job = await taskQueue.add("processPdf", { documentId: createdId });
+  updateRecord("documents", createdId, { bullmq_job_id: job.id });
+}
+
+const documents = executeQuery("documents");
+---
+
+<Layout title="Documents">
+  <ul>
+    {
+      documents.map((document) => (
+        <li>
+          <a href={`/documents/${document.id}`}>{document.filename}</a> (state:{" "}
+          <JobState jobId={document.bullmq_job_id} id={document.id} />)
+        </li>
+      ))
+    }
+  </ul>
+
+  <h2>Create new</h2>
+  <form
+    hx-post="."
+    hx-target="main"
+    hx-select="main"
+    hx-trigger="change"
+    enctype="multipart/form-data"
+  >
+    <label
+      >File
+      <input type="file" name="file" />
+    </label>
+    <button>Create</button>
+  </form>
+</Layout>

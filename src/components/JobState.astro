@@ -1,0 +1,26 @@
+---
+import { getRecordById } from "@src/utils/db";
+import { taskQueue } from "@src/utils/task-queue";
+
+const { id, jobId } = Astro.props;
+
+const jobState = await taskQueue.getJobState(jobId);
+
+const finishedJobStates = ["completed", "failed", "cancelled", "unknown"];
+const shouldPoll = !finishedJobStates.includes(jobState);
+---
+
+{
+  shouldPoll ? (
+    <span
+      id={`job-state-${id}`}
+      hx-get={`/documents/${id}/job_state`}
+      hx-trigger="every 1s"
+      hx-swap="outerHTML"
+    >
+      {jobState}
+    </span>
+  ) : (
+    <span id={`job-state-${id}`}>{jobState}</span>
+  )
+}

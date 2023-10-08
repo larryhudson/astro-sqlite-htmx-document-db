@@ -1,0 +1,46 @@
+---
+import { taskQueue } from "@src/utils/task-queue";
+
+import { getRecordById, deleteRecordById, executeQuery } from "@src/utils/db";
+
+import Layout from "@src/components/Layout.astro";
+import Dump from "@src/components/Dump.astro";
+
+const { id } = Astro.params;
+
+if (Astro.request.method === "POST") {
+  const formData = await Astro.request.formData();
+  const action = formData.get("action");
+  if (action === "delete") {
+    const deleted = deleteRecordById("documents", id);
+    if (deleted) return Astro.redirect("/documents?status=deleted");
+  } else if (action === "process") {
+    await taskQueue.add("processDocument", { id });
+  }
+}
+
+const document = getRecordById("documents", id);
+const pages = executeQuery("document_pages", { document_id: id });
+---
+
+<Layout title={`document: ${document.filename}`}>
+  <form method="POST">
+    <button name="action" value="delete">Delete</button>
+    <button name="action" value="process">Process asynchronously</button>
+  </form>
+
+  <p><a href={`/documents/${document.id}/edit`}>Edit</a></p>
+
+  <dl>
+    <dt>Title:</dt>
+    <dd>{document.title}</dd>
+
+    <dt>Body:</dt>
+    <dd>{document.body}</dd>
+  </dl>
+
+  <Dump data={document} />
+
+  <h2>Pages</h2>
+  <Dump data={pages} />
+</Layout>
